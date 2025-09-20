@@ -1,22 +1,20 @@
+import os
+import requests
+import hmac, hashlib, base64
+from datetime import datetime, timezone
 from flask import Flask, jsonify
 from flask_cors import CORS
-import requests, hmac, hashlib, base64, os
-from datetime import datetime, timezone
 
 app = Flask(__name__)
 CORS(app)  # allow cross-origin requests
 
-# Bókun API credentials
+# Your Bokun API keys
 ACCESS_KEY = "75dd7122985a493ebcb1c04841ca2d17"
 SECRET_KEY = "00c39fd375af4b8e8888b483d14335f5"
 
-# Test with only one product
 PRODUCTS = [
-    {
-        "id": "1084194",
-        "name": "Skerries & Dunluce",
-        "booking_url": "https://aquaholics.co.uk/pages/boku-test"
-    }
+    {"id": "1084194", "name": "Skerries & Dunluce", "booking_url": "https://aquaholics.co.uk/pages/boku-test"},
+    {"id": "1087988", "name": "Giant's Causeway, Skerries & Dunluce", "booking_url": "https://aquaholics.co.uk/pages/giants-causeway-bkuk"},
 ]
 
 def generate_signature(secret_key, access_key, date_str, method, path, query=""):
@@ -30,7 +28,6 @@ def millis_to_iso(ms):
 
 def get_availability_for_products(start_date, end_date):
     events = []
-
     for product in PRODUCTS:
         product_id = product["id"]
         booking_url = product["booking_url"]
@@ -40,7 +37,6 @@ def get_availability_for_products(start_date, end_date):
         query = f"?start={start_date}&end={end_date}&lang=EN&currency=ISK&includeSoldOut=false"
         full_path = path + query
 
-        # UTC date string
         date_str = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
         signature = generate_signature(SECRET_KEY, ACCESS_KEY, date_str, method, path, query)
 
@@ -52,21 +48,9 @@ def get_availability_for_products(start_date, end_date):
         }
 
         url = "https://api.bokun.io" + full_path
-
-        # --- LOGGING FOR DEBUG ---
-        print("Request URL:", url)
-        print("Headers:", headers)
-
-        try:
-            response = requests.get(url, headers=headers, timeout=10)
-            print("Response status:", response.status_code)
-            print("Response text:", response.text)
-
-            response.raise_for_status()
-            data = response.json()
-        except Exception as e:
-            print("Error fetching data:", e)
-            return [{"error": str(e)}]
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        data = response.json()
 
         for slot in data:
             spots = slot.get("availabilityCount", 0)
@@ -79,16 +63,16 @@ def get_availability_for_products(start_date, end_date):
                 "color": "green" if not is_sold_out else "red",
                 "url": booking_url if not is_sold_out else None,
             })
-
     return events
 
 @app.route("/availability/<start>/<end>")
 def availability(start, end):
-    events = get_availability_for_products(start, end)
-    return jsonify(events)
+    try:
+        events = get_availability_for_products(start, end)
+        return jsonify(events)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
+    port = int(os.environ.get("PORT", 5000))  # Railway automatically sets PORT
     app.run(host="0.0.0.0", port=port, debug=True)
-
-
