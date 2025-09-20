@@ -1,9 +1,12 @@
 import requests
 from datetime import datetime, timezone
 from flask import Flask, jsonify
+from flask_cors import CORS
 import hmac, hashlib, base64
+import os
 
 app = Flask(__name__)
+CORS(app)  # allow cross-origin requests from Shopify
 
 ACCESS_KEY = "75dd7122985a493ebcb1c04841ca2d17"
 SECRET_KEY = "00c39fd375af4b8e8888b483d14335f5"
@@ -11,7 +14,6 @@ SECRET_KEY = "00c39fd375af4b8e8888b483d14335f5"
 PRODUCTS = [
     {"id": "1084194", "name": "Skerries & Dunluce", "booking_url": "https://aquaholics.co.uk/pages/boku-test"},
     {"id": "1087988", "name": "Giant's Causeway, Skerries & Dunluce", "booking_url": "https://aquaholics.co.uk/pages/giants-causeway-bkuk"},
-    
 ]
 
 def generate_signature(secret_key, access_key, date_str, method, path, query=""):
@@ -67,9 +69,12 @@ def get_availability_for_products(start_date, end_date):
 
 @app.route("/availability/<start>/<end>")
 def availability(start, end):
-    events = get_availability_for_products(start, end)
-    return jsonify(events)
+    try:
+        events = get_availability_for_products(start, end)
+        return jsonify(events)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
-
+    port = int(os.environ.get("PORT", 5000))  # Railway sets PORT automatically
+    app.run(host="0.0.0.0", port=port, debug=True)
