@@ -1,33 +1,59 @@
-import os
-import requests
-import hmac, hashlib, base64
-from datetime import datetime, timezone
 from flask import Flask, jsonify
 from flask_cors import CORS
+import requests, hmac, hashlib, base64, os
+from datetime import datetime, timezone
 
+# --- Flask setup ---
 app = Flask(__name__)
-CORS(app)  # allow cross-origin requests
+CORS(app)  # Allow CORS so Shopify can fetch data
 
-# Your Bokun API keys
+# --- Bókun API keys (replace if needed) ---
 ACCESS_KEY = "75dd7122985a493ebcb1c04841ca2d17"
 SECRET_KEY = "00c39fd375af4b8e8888b483d14335f5"
 
+# --- Products you want to display ---
 PRODUCTS = [
-    {"id": "1084194", "name": "Skerries & Dunluce", "booking_url": "https://aquaholics.co.uk/pages/boku-test"},
-    {"id": "1087988", "name": "Giant's Causeway, Skerries & Dunluce", "booking_url": "https://aquaholics.co.uk/pages/giants-causeway-bkuk"},
+    {
+        "id": "1084194",
+        "name": "Skerries & Dunluce",
+        "booking_url": "https://aquaholics.co.uk/pages/boku-test"
+    },
+    {
+        "id": "1087988",
+        "name": "Giant's Causeway, Skerries & Dunluce",
+        "booking_url": "https://aquaholics.co.uk/pages/giants-causeway-bkuk"
+    },
 ]
 
+# --- Bokun Signature Helpers ---
+
+def bokun_date_str():
+    """Return UTC date string exactly as Bokun expects."""
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+
 def generate_signature(secret_key, access_key, date_str, method, path, query=""):
-    message = f"{date_str}{access_key}{method}{path}{query}"
+    """Generate signature identical to Bokun Postman pre-request script."""
+    message = f"{date_str}{access_key}{method}{path}{query}".strip()
     digest = hmac.new(secret_key.encode("utf-8"), message.encode("utf-8"), hashlib.sha1).digest()
-    return base64.b64encode(digest).decode("utf-8")
+    signature = base64.b64encode(digest).decode("utf-8")
+
+    # Debug logs for verification
+    print("[BOKUN DEBUG] Date:", date_str)
+    print("[BOKUN DEBUG] Message:", message)
+    print("[BOKUN DEBUG] Signature:", signature)
+
+    return signature
 
 def millis_to_iso(ms):
+    """Convert milliseconds since epoch to ISO 8601 string."""
     dt = datetime.fromtimestamp(ms / 1000, tz=timezone.utc)
     return dt.isoformat()
 
+# --- Bokun API Request ---
+
 def get_availability_for_products(start_date, end_date):
     events = []
+
     for product in PRODUCTS:
         product_id = product["id"]
         booking_url = product["booking_url"]
@@ -37,7 +63,7 @@ def get_availability_for_products(start_date, end_date):
         query = f"?start={start_date}&end={end_date}&lang=EN&currency=ISK&includeSoldOut=false"
         full_path = path + query
 
-        date_str = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+        date_str = bokun_date_str()
         signature = generate_signature(SECRET_KEY, ACCESS_KEY, date_str, method, path, query)
 
         headers = {
@@ -48,22 +74,31 @@ def get_availability_for_products(start_date, end_date):
         }
 
         url = "https://api.bokun.io" + full_path
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()
-        data = response.json()
+        print("[BOKUN DEBUG] Request URL:", url)
 
-        for slot in data:
-            spots = slot.get("availabilityCount", 0)
-            is_sold_out = slot.get("soldOut", False) or slot.get("unavailable", False)
-            start_time = millis_to_iso(slot["date"]) if "date" in slot else None
+        try:
+            response = requests.get(url, headers=headers, timeout=10)
+            response.raise_for_status()
+            data = response.json()
 
-            events.append({
-                "title": f"{product['name']} - {spots} spots",
-                "start": start_time,
-                "color": "green" if not is_sold_out else "red",
-                "url": booking_url if not is_sold_out else None,
-            })
+            for slot in data:
+                spots = slot.get("availabilityCount", 0)
+                is_sold_out = slot.get("soldOut", False) or slot.get("unavailable", False)
+                start_time = millis_to_iso(slot["date"]) if "date" in slot else None
+
+                events.append({
+                    "title": f"{product['name']} - {spots} spots",
+                    "start": start_time,
+                    "color": "green" if not is_sold_out else "red",
+                    "url": booking_url if not is_sold_out else None,
+                })
+
+        except requests.RequestException as e:
+            print("[ERROR] Request failed for", product_id, ":", e)
+
     return events
+
+# --- Flask route for frontend ---
 
 @app.route("/availability/<start>/<end>")
 def availability(start, end):
@@ -71,8 +106,11 @@ def availability(start, end):
         events = get_availability_for_products(start, end)
         return jsonify(events)
     except Exception as e:
+        print("[ERROR]", e)
         return jsonify({"error": str(e)}), 500
 
+# --- Run Flask locally or on Railway ---
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))  # Railway automatically sets PORT
+    port = int(os.environ.get("PORT", 5000))  # Railway sets PORT automatically
+    print(f"[INFO] Starting Flask on port {port}...")
     app.run(host="0.0.0.0", port=port, debug=True)
