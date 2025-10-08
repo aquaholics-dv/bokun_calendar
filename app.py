@@ -23,7 +23,7 @@ CORS(app)  # allow Shopify to call this API
 
 # --- Bókun API keys (replace if needed) ---
 ACCESS_KEY = "75dd7122985a493ebcb1c04841ca2d17"
-SECRET_KEY = "00c39fd375af4b8e8888b483d14335f5"
+SECRET_KEY = "8495ebd2d7414b8ebfd9d7253b5bdf09"
 # Read your Bókun API keys from environment variables (recommended)
 ACCESS_KEY = os.getenv("BOKUN_ACCESS_KEY", "")
 SECRET_KEY = os.getenv("BOKUN_SECRET_KEY", "")
