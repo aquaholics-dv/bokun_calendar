@@ -1,5 +1,4 @@
 # app.py
-import os
 import hmac
 import base64
 import hashlib
@@ -11,45 +10,47 @@ from flask import Flask, jsonify
 from flask_cors import CORS
 
 # -----------------------------------------------------------------------------
-# App & config
+# Flask setup
 # -----------------------------------------------------------------------------
 app = Flask(__name__)
-CORS(app)  # allow Shopify to call this API
+CORS(app)
 
-# Read your Bókun API keys from environment variables (recommended)
-ACCESS_KEY = os.getenv("75dd7122985a493ebcb1c04841ca2d17", "")
-SECRET_KEY = os.getenv("00c39fd375af4b8e8888b483d14335f5", "")
+# -----------------------------------------------------------------------------
+# 🔐 YOUR BÓKUN API CREDENTIALS
+# -----------------------------------------------------------------------------
+ACCESS_KEY = "75dd7122985a493ebcb1c04841ca2d17"
+SECRET_KEY = "8495ebd2d7414b8ebfd9d7253b5bdf09"
 
-# IMPORTANT: set these in Railway → Variables:
-#  BOKUN_ACCESS_KEY=xxxxxxxxxxxxxxxxxxxx
-#  BOKUN_SECRET_KEY=xxxxxxxxxxxxxxxxxxxx
-
-# Products you want to show on the calendar
+# -----------------------------------------------------------------------------
+# Product configurations
+# -----------------------------------------------------------------------------
 PRODUCTS = [
-    # id = activity/product id in Bókun
-    {"id": "1084194", "name": "Skerries & Dunluce", "booking_url": "https://aquaholics.co.uk/pages/boku-test"},
-    {"id": "1087988", "name": "Giant's Causeway, Skerries & Dunluce", "booking_url": "https://aquaholics.co.uk/pages/giants-causeway-bkuk"},
+    {
+        "id": "1084194",
+        "name": "Skerries & Dunluce",
+        "booking_url": "https://aquaholics.co.uk/pages/boku-test",
+    },
+    {
+        "id": "1087988",
+        "name": "Giant's Causeway, Skerries & Dunluce",
+        "booking_url": "https://aquaholics.co.uk/pages/giants-causeway-bkuk",
+    },
 ]
 
-# Show times in UK time
 LOCAL_TZ = ZoneInfo("Europe/London")
 
 # -----------------------------------------------------------------------------
 # Helpers
 # -----------------------------------------------------------------------------
 def generate_signature(secret_key: str, access_key: str, date_str: str, method: str, path: str, query: str = "") -> str:
-    """
-    Per Bókun docs: signature = Base64( HMAC-SHA1( secret, date + accessKey + method + path + query ) )
-    """
+    """Create Bókun signature per API requirements."""
     message = f"{date_str}{access_key}{method}{path}{query}"
     digest = hmac.new(secret_key.encode("utf-8"), message.encode("utf-8"), hashlib.sha1).digest()
     return base64.b64encode(digest).decode("utf-8")
 
 
 def normalize_date_param(s: str) -> str:
-    """
-    Accepts 'YYYY-MM-DD' or ISO strings like 'YYYY-MM-DDTHH:MM:SSZ' and returns 'YYYY-MM-DD'.
-    """
+    """Normalize date inputs (strip Z, keep YYYY-MM-DD)."""
     try:
         s_clean = (s or "").replace("Z", "+00:00")
         return datetime.fromisoformat(s_clean).date().strftime("%Y-%m-%d")
@@ -58,32 +59,22 @@ def normalize_date_param(s: str) -> str:
 
 
 def slot_start_iso_local(slot: dict) -> str | None:
-    """
-    Build a local ISO datetime like '2025-09-22T10:00:00' from:
-      - slot['date']       (ms since epoch, local date baseline)
-      - slot['startTime']  ('HH:MM')
-    No trailing 'Z' so FullCalendar treats it as local time (no timezone shift).
-    """
+    """Build 'YYYY-MM-DDTHH:MM:SS' in UK time from slot date (ms) + startTime ('HH:MM')."""
     try:
         ms = slot.get("date")
-        st = slot.get("startTime")  # 'HH:MM'
+        st = slot.get("startTime")
         if ms is None or not st:
             return None
-
-        # Convert ms epoch to LOCAL date so DST is handled
         dt_local_midnight = datetime.fromtimestamp(ms / 1000, tz=LOCAL_TZ)
         hour, minute = map(int, st.split(":"))
         dt_local = dt_local_midnight.replace(hour=hour, minute=minute, second=0, microsecond=0)
-        # Return without timezone suffix
         return dt_local.strftime("%Y-%m-%dT%H:%M:%S")
     except Exception:
         return None
 
 
 def fetch_bokun_availability(product_id: str, start_date: str, end_date: str) -> list[dict]:
-    """
-    Calls Bókun availability endpoint for a single product and returns the JSON list.
-    """
+    """Call the Bókun API for a product's availability."""
     method = "GET"
     path = f"/activity.json/{product_id}/availabilities"
     query = f"?start={start_date}&end={end_date}&lang=EN&currency=ISK&includeSoldOut=false"
@@ -105,9 +96,7 @@ def fetch_bokun_availability(product_id: str, start_date: str, end_date: str) ->
 
 
 def to_calendar_events(product: dict, slots: list[dict]) -> list[dict]:
-    """
-    Transform Bókun slots to FullCalendar events.
-    """
+    """Convert Bókun slots → FullCalendar-compatible events."""
     events: list[dict] = []
     for slot in slots:
         start_iso = slot_start_iso_local(slot)
@@ -116,73 +105,51 @@ def to_calendar_events(product: dict, slots: list[dict]) -> list[dict]:
 
         spots = slot.get("availabilityCount", 0)
         is_sold_out = slot.get("soldOut", False) or slot.get("unavailable", False)
-
-        # Prefer Bókun's full activityTitle; fall back to configured product name
         base_title = slot.get("activityTitle") or product.get("name") or "Trip"
-        full_title = f"{base_title} - {spots} spots" if isinstance(spots, int) else base_title
+
+        # Keep the full title + spots
+        title = f"{base_title} - {spots} spots" if isinstance(spots, int) else base_title
 
         events.append({
             "id": slot.get("id") or f"{product.get('id')}_{start_iso}",
-            "title": full_title,                # full title with spots
-            "start": start_iso,                 # includes time, local
-            "allDay": False,                    # ensure time is displayed
+            "title": title,
+            "start": start_iso,        # includes time
+            "allDay": False,           # ensures time is visible
             "url": None if is_sold_out else product.get("booking_url"),
-            # cosmetic fields (optional)
             "color": "#ef4444" if is_sold_out else "#16a34a",
             "isSoldOut": bool(is_sold_out),
-            "timeLabel": slot.get("startTime"), # convenient for custom rendering
+            "timeLabel": slot.get("startTime"),
         })
     return events
-
 
 # -----------------------------------------------------------------------------
 # Routes
 # -----------------------------------------------------------------------------
 @app.route("/")
 def root():
-    return jsonify({
-        "ok": True,
-        "service": "bokun-calendar-backend",
-        "time": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
-    })
-
+    return jsonify({"ok": True, "service": "bokun-calendar-backend"})
 
 @app.route("/availability/<start>/<end>")
 def availability(start: str, end: str):
-    """
-    Returns a merged list of events for all PRODUCTS within start..end (inclusive).
-    Accepts date-only or ISO; we normalise to 'YYYY-MM-DD' for Bókun.
-    """
-    # Guard: ensure keys exist
-    if not ACCESS_KEY or not SECRET_KEY:
-        return jsonify({"error": "Missing BOKUN_ACCESS_KEY / BOKUN_SECRET_KEY env vars"}), 500
-
+    """Merge all products' availabilities into one JSON list."""
     start_date = normalize_date_param(start)
     end_date   = normalize_date_param(end)
-
     merged: list[dict] = []
+
     for product in PRODUCTS:
         try:
             slots = fetch_bokun_availability(product["id"], start_date, end_date)
             merged.extend(to_calendar_events(product, slots))
-        except requests.HTTPError as http_err:
-            # Log and continue so one failing product doesn't break the response
-            print(f"[ERROR] HTTP for product {product['id']}: {http_err}")
-            continue
         except Exception as e:
-            print(f"[ERROR] product {product['id']}: {e}")
+            print(f"[ERROR] Product {product['id']} failed:", e)
             continue
 
-    # Sort by start datetime (string sort works with YYYY-MM-DDTHH:MM:SS)
     merged.sort(key=lambda e: e.get("start") or "")
     return jsonify(merged)
 
-
 # -----------------------------------------------------------------------------
-# Entry
+# Run
 # -----------------------------------------------------------------------------
 if __name__ == "__main__":
-    # Railway provides PORT; default to 5000 locally
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True)
-
