@@ -1,4 +1,4 @@
-"""Minimal Flask application exposing Bokun availability as FullCalendar events."""
+"""Production Flask application exposing Bokun availability as FullCalendar events."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ import base64
 import hashlib
 import hmac
 import os
+import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional
@@ -14,21 +15,28 @@ import requests
 from flask import Flask, jsonify
 from flask_cors import CORS
 
+# --- Logging setup ---
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(message)s'
+)
+logger = logging.getLogger(__name__)
+
 # --- Flask setup ---
 app = Flask(__name__)
-CORS(app)  # Allow CORS so Shopify can fetch data
+CORS(app)
 
-# --- Bókun API keys (replace if needed) ---
-ACCESS_KEY = "75dd7122985a493ebcb1c04841ca2d17"
-SECRET_KEY = "00c39fd375af4b8e8888b483d14335f5"
+# --- Bókun API keys ---
+ACCESS_KEY = os.environ.get("BOKUN_ACCESS_KEY", "75dd7122985a493ebcb1c04841ca2d17")
+SECRET_KEY = os.environ.get("BOKUN_SECRET_KEY", "00c39fd375af4b8e8888b483d14335f5")
 
 @dataclass(frozen=True)
 class Product:
     """Small container describing a Bokun product we want to expose."""
-
     id: str
     name: str
     booking_url: str
+    color: str = "green"
 
 
 # --- Products you want to display ---
@@ -37,19 +45,22 @@ PRODUCTS: List[Product] = [
         id="1084194",
         name="Skerries & Dunluce",
         booking_url="https://aquaholics.co.uk/pages/boku-test",
+        color="#10b981"  # Emerald green
     ),
     Product(
         id="1087988",
         name="Giant's Causeway, Skerries & Dunluce",
         booking_url="https://aquaholics.co.uk/pages/giants-causeway-bkuk",
+        color="#3b82f6"  # Blue
     ),
 ]
 
 # --- Bokun Signature Helpers ---
 
-def bokun_date_str():
+def bokun_date_str() -> str:
     """Return UTC date string exactly as Bokun expects."""
     return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+
 
 def generate_signature(
     secret_key: str,
@@ -59,13 +70,15 @@ def generate_signature(
     path: str,
     query: str = "",
 ) -> str:
-    """Generate signature identical to Bokun Postman pre-request script."""
-
+    """Generate HMAC signature for Bokun API authentication."""
     message = f"{date_str}{access_key}{method}{path}{query}".strip()
-    digest = hmac.new(secret_key.encode("utf-8"), message.encode("utf-8"), hashlib.sha1).digest()
-    signature = base64.b64encode(digest).decode("utf-8")
+    digest = hmac.new(
+        secret_key.encode("utf-8"),
+        message.encode("utf-8"),
+        hashlib.sha1
+    ).digest()
+    return base64.b64encode(digest).decode("utf-8")
 
-    return signature
 
 def millis_to_iso(ms: int) -> str:
     """Convert milliseconds since epoch to ISO 8601 string."""
@@ -76,17 +89,11 @@ def millis_to_iso(ms: int) -> str:
 def normalize_start_time(slot: Dict[str, Any]) -> Optional[str]:
     """Return the best available ISO-8601 start time for a slot."""
     
-    # Print raw slot data for debugging
-    print(f"[DEBUG] Raw slot keys: {list(slot.keys())}")
-    print(f"[DEBUG] Slot data: {slot}")
-
-    # Try millisecond timestamps first (most reliable)
+    # Try millisecond timestamps first
     for key in ("startTimeUtc", "startTime"):
         value = slot.get(key)
-        if isinstance(value, (int, float)) and value > 1000000000:  # Reasonable timestamp
-            result = millis_to_iso(int(value))
-            print(f"[DEBUG] Using {key}={value} -> {result}")
-            return result
+        if isinstance(value, (int, float)) and value > 1000000000:
+            return millis_to_iso(int(value))
 
     # Try full ISO datetime strings
     for key in ("startTimeUtc", "startTime", "localStartTime"):
@@ -99,9 +106,7 @@ def normalize_start_time(slot: Dict[str, Any]) -> Optional[str]:
                 parsed = datetime.fromisoformat(cleaned)
                 if parsed.tzinfo is None:
                     parsed = parsed.replace(tzinfo=timezone.utc)
-                result = parsed.isoformat()
-                print(f"[DEBUG] Using {key}={value} -> {result}")
-                return result
+                return parsed.isoformat()
             except ValueError:
                 continue
 
@@ -109,54 +114,38 @@ def normalize_start_time(slot: Dict[str, Any]) -> Optional[str]:
     date_val = slot.get("date")
     time_val = None
     
-    # Look for time in various fields
     for time_key in ("startTime", "localStartTime", "time"):
         time_val = slot.get(time_key)
         if time_val:
             break
     
-    print(f"[DEBUG] date={date_val}, time={time_val}")
-    
     if date_val:
-        # Handle date as string
         if isinstance(date_val, str):
-            date_str = date_val.strip()[:10]  # Get YYYY-MM-DD part
-        # Handle date as milliseconds
+            date_str = date_val.strip()[:10]
         elif isinstance(date_val, (int, float)):
-            date_str = datetime.fromtimestamp(date_val / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
+            date_str = datetime.fromtimestamp(
+                date_val / 1000, tz=timezone.utc
+            ).strftime("%Y-%m-%d")
         else:
-            print(f"[WARNING] Unknown date type: {type(date_val)}")
             return None
         
-        # Handle time
-        if time_val:
-            if isinstance(time_val, str):
-                time_str = time_val.strip()
-                # Ensure HH:MM:SS format
-                if len(time_str) == 5:  # HH:MM
-                    time_str += ":00"
-                result = f"{date_str}T{time_str}+00:00"
-                print(f"[DEBUG] Combined date+time -> {result}")
-                return result
-            elif isinstance(time_val, (int, float)):
-                # Time as milliseconds
-                result = millis_to_iso(int(time_val))
-                print(f"[DEBUG] Using time milliseconds -> {result}")
-                return result
+        if time_val and isinstance(time_val, str):
+            time_str = time_val.strip()
+            if len(time_str) == 5:
+                time_str += ":00"
+            return f"{date_str}T{time_str}+00:00"
+        elif time_val and isinstance(time_val, (int, float)):
+            return millis_to_iso(int(time_val))
         
-        # No time found, default to noon (more visible than midnight)
-        result = f"{date_str}T12:00:00+00:00"
-        print(f"[DEBUG] Date only, defaulting to noon -> {result}")
-        return result
+        return f"{date_str}T12:00:00+00:00"
 
-    print("[WARNING] No valid date/time found in slot")
     return None
+
 
 # --- Bokun API Request ---
 
 def _build_request_headers(method: str, path: str, query: str) -> Dict[str, str]:
     """Create Bokun request headers including a fresh signature."""
-
     date_str = bokun_date_str()
     signature = generate_signature(SECRET_KEY, ACCESS_KEY, date_str, method, path, query)
 
@@ -170,78 +159,84 @@ def _build_request_headers(method: str, path: str, query: str) -> Dict[str, str]
 
 def _build_events(product: Product, slots: Iterable[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Transform raw Bokun slots into FullCalendar-compatible events."""
-
     events: List[Dict[str, Any]] = []
 
-    for i, slot in enumerate(slots):
+    for slot in slots:
         spots = slot.get("availabilityCount", 0)
         is_sold_out = slot.get("soldOut", False) or slot.get("unavailable", False)
-        
-        print(f"\n[DEBUG] === Processing slot {i} for {product.name} ===")
         start_time = normalize_start_time(slot)
 
         if not start_time:
-            print(f"[WARNING] Skipping slot {i} - no valid start time")
             continue
 
-        events.append(
-            {
-                "title": f"{product.name} - {spots} spots",
-                "start": start_time,
-                "color": "green" if not is_sold_out else "red",
-                "url": product.booking_url if not is_sold_out else None,
+        events.append({
+            "title": f"{product.name}",
+            "start": start_time,
+            "color": "#ef4444" if is_sold_out else product.color,
+            "url": product.booking_url if not is_sold_out else None,
+            "extendedProps": {
+                "spots": spots,
+                "soldOut": is_sold_out,
+                "productName": product.name
             }
-        )
+        })
 
     return events
 
 
 def get_availability_for_products(start_date: str, end_date: str) -> List[Dict[str, Any]]:
     """Fetch availability for each product and return FullCalendar event payloads."""
-
     events: List[Dict[str, Any]] = []
 
     for product in PRODUCTS:
         method = "GET"
         path = f"/activity.json/{product.id}/availabilities"
-        query = f"?start={start_date}&end={end_date}&lang=EN&currency=ISK&includeSoldOut=false"
+        query = f"?start={start_date}&end={end_date}&lang=EN&currency=GBP&includeSoldOut=false"
         full_path = path + query
 
         headers = _build_request_headers(method, path, query)
-
         url = "https://api.bokun.io" + full_path
-        print(f"\n[BOKUN DEBUG] === Fetching {product.name} ===")
-        print(f"[BOKUN DEBUG] Request URL: {url}")
 
         try:
             response = requests.get(url, headers=headers, timeout=10)
             response.raise_for_status()
             data = response.json()
-            print(f"[BOKUN DEBUG] Received {len(data)} slots from Bokun")
+            product_events = _build_events(product, data)
+            events.extend(product_events)
+            logger.info(f"Loaded {len(product_events)} events for {product.name}")
         except requests.RequestException as exc:
-            print(f"[ERROR] Request failed for {product.id}: {exc}")
+            logger.error(f"Request failed for {product.id}: {exc}")
             continue
 
-        events.extend(_build_events(product, data))
-
-    print(f"\n[BOKUN DEBUG] === Total events generated: {len(events)} ===\n")
     return events
 
-# --- Flask route for frontend ---
+
+# --- Flask routes ---
+
+@app.route("/")
+def index():
+    """Health check endpoint."""
+    return jsonify({
+        "status": "ok",
+        "service": "Bokun Calendar API",
+        "products": len(PRODUCTS)
+    })
+
 
 @app.route("/availability/<start>/<end>")
 def availability(start, end):
+    """Fetch availability for the given date range."""
     try:
         events = get_availability_for_products(start, end)
+        logger.info(f"Returning {len(events)} total events for {start} to {end}")
         return jsonify(events)
     except Exception as e:
-        print(f"[ERROR] {e}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
+        logger.error(f"Error processing request: {e}", exc_info=True)
+        return jsonify({"error": "Internal server error"}), 500
 
-# --- Run Flask locally or on Railway ---
+
+# --- Run Flask ---
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    print(f"[INFO] Starting Flask on port {port}...")
+    logger.info(f"Starting Flask on port {port}...")
     app.run(host="0.0.0.0", port=port, debug=True)
