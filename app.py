@@ -65,75 +65,91 @@ def generate_signature(
     digest = hmac.new(secret_key.encode("utf-8"), message.encode("utf-8"), hashlib.sha1).digest()
     signature = base64.b64encode(digest).decode("utf-8")
 
-    # Debug logs for verification
-    print("[BOKUN DEBUG] Date:", date_str)
-    print("[BOKUN DEBUG] Message:", message)
-    print("[BOKUN DEBUG] Signature:", signature)
-
     return signature
 
 def millis_to_iso(ms: int) -> str:
     """Convert milliseconds since epoch to ISO 8601 string."""
-
     dt = datetime.fromtimestamp(ms / 1000, tz=timezone.utc)
     return dt.isoformat()
 
 
 def normalize_start_time(slot: Dict[str, Any]) -> Optional[str]:
     """Return the best available ISO-8601 start time for a slot."""
+    
+    # Print raw slot data for debugging
+    print(f"[DEBUG] Raw slot keys: {list(slot.keys())}")
+    print(f"[DEBUG] Slot data: {slot}")
 
-    def _coerce(value: Any) -> Optional[str]:
-        if value is None:
-            return None
+    # Try millisecond timestamps first (most reliable)
+    for key in ("startTimeUtc", "startTime"):
+        value = slot.get(key)
+        if isinstance(value, (int, float)) and value > 1000000000:  # Reasonable timestamp
+            result = millis_to_iso(int(value))
+            print(f"[DEBUG] Using {key}={value} -> {result}")
+            return result
 
-        if isinstance(value, (int, float)):
-            return millis_to_iso(int(value))
-
-        if isinstance(value, str):
-            cleaned = value.strip()
-            if not cleaned:
-                return None
-
-            # Bókun often returns timestamps with "Z" or "+0000" suffixes.
-            cleaned = cleaned.replace("Z", "+00:00")
+    # Try full ISO datetime strings
+    for key in ("startTimeUtc", "startTime", "localStartTime"):
+        value = slot.get(key)
+        if isinstance(value, str) and len(value) > 10:
+            cleaned = value.strip().replace("Z", "+00:00")
             if cleaned.endswith("+0000"):
                 cleaned = cleaned[:-5] + "+00:00"
-
             try:
-                # datetime.fromisoformat handles most ISO 8601 combinations.
                 parsed = datetime.fromisoformat(cleaned)
+                if parsed.tzinfo is None:
+                    parsed = parsed.replace(tzinfo=timezone.utc)
+                result = parsed.isoformat()
+                print(f"[DEBUG] Using {key}={value} -> {result}")
+                return result
             except ValueError:
-                # If parsing fails, return None so we can try other fields
-                return None
+                continue
 
-            # Ensure timezone awareness so the frontend renders the correct absolute time.
-            if parsed.tzinfo is None:
-                parsed = parsed.replace(tzinfo=timezone.utc)
-
-            return parsed.isoformat()
-
-        return None
-
-    # Try different field combinations in order of preference
-    for key in ("startTimeUtc", "startTime", "localStartTime"):
-        normalized = _coerce(slot.get(key))
-        if normalized:
-            return normalized
-    
-    # If we only have a date field, try to construct full datetime
+    # Try combining date + time fields
     date_val = slot.get("date")
+    time_val = None
+    
+    # Look for time in various fields
+    for time_key in ("startTime", "localStartTime", "time"):
+        time_val = slot.get(time_key)
+        if time_val:
+            break
+    
+    print(f"[DEBUG] date={date_val}, time={time_val}")
+    
     if date_val:
-        date_str = _coerce(date_val)
-        if date_str and len(date_str) == 10:  # Just a date like "2025-10-15"
-            # Look for time in other fields
-            time_val = slot.get("startTime") or slot.get("localStartTime")
-            if time_val and isinstance(time_val, str):
-                # Combine date and time
-                return f"{date_str}T{time_val}:00"
-            # Default to midnight if no time found
-            return f"{date_str}T00:00:00"
-        return date_str
+        # Handle date as string
+        if isinstance(date_val, str):
+            date_str = date_val.strip()[:10]  # Get YYYY-MM-DD part
+        # Handle date as milliseconds
+        elif isinstance(date_val, (int, float)):
+            date_str = datetime.fromtimestamp(date_val / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
+        else:
+            print(f"[WARNING] Unknown date type: {type(date_val)}")
+            return None
+        
+        # Handle time
+        if time_val:
+            if isinstance(time_val, str):
+                time_str = time_val.strip()
+                # Ensure HH:MM:SS format
+                if len(time_str) == 5:  # HH:MM
+                    time_str += ":00"
+                result = f"{date_str}T{time_str}+00:00"
+                print(f"[DEBUG] Combined date+time -> {result}")
+                return result
+            elif isinstance(time_val, (int, float)):
+                # Time as milliseconds
+                result = millis_to_iso(int(time_val))
+                print(f"[DEBUG] Using time milliseconds -> {result}")
+                return result
+        
+        # No time found, default to noon (more visible than midnight)
+        result = f"{date_str}T12:00:00+00:00"
+        print(f"[DEBUG] Date only, defaulting to noon -> {result}")
+        return result
 
+    print("[WARNING] No valid date/time found in slot")
     return None
 
 # --- Bokun API Request ---
@@ -157,17 +173,15 @@ def _build_events(product: Product, slots: Iterable[Dict[str, Any]]) -> List[Dic
 
     events: List[Dict[str, Any]] = []
 
-    for slot in slots:
+    for i, slot in enumerate(slots):
         spots = slot.get("availabilityCount", 0)
         is_sold_out = slot.get("soldOut", False) or slot.get("unavailable", False)
-        start_time = normalize_start_time(slot)
         
-        # Debug: print what we're getting from Bokun
-        print(f"[DEBUG] Slot data: date={slot.get('date')}, startTime={slot.get('startTime')}, "
-              f"startTimeUtc={slot.get('startTimeUtc')}, normalized={start_time}")
+        print(f"\n[DEBUG] === Processing slot {i} for {product.name} ===")
+        start_time = normalize_start_time(slot)
 
         if not start_time:
-            print(f"[WARNING] Skipping slot with no valid start time: {slot}")
+            print(f"[WARNING] Skipping slot {i} - no valid start time")
             continue
 
         events.append(
@@ -196,20 +210,21 @@ def get_availability_for_products(start_date: str, end_date: str) -> List[Dict[s
         headers = _build_request_headers(method, path, query)
 
         url = "https://api.bokun.io" + full_path
-        print("[BOKUN DEBUG] Request URL:", url)
+        print(f"\n[BOKUN DEBUG] === Fetching {product.name} ===")
+        print(f"[BOKUN DEBUG] Request URL: {url}")
 
         try:
             response = requests.get(url, headers=headers, timeout=10)
             response.raise_for_status()
             data = response.json()
-            print(f"[BOKUN DEBUG] Received {len(data)} slots from Bokun for product {product.id}")
-        except requests.RequestException as exc:  # pragma: no cover - side effect logging only
-            print("[ERROR] Request failed for", product.id, ":", exc)
+            print(f"[BOKUN DEBUG] Received {len(data)} slots from Bokun")
+        except requests.RequestException as exc:
+            print(f"[ERROR] Request failed for {product.id}: {exc}")
             continue
 
         events.extend(_build_events(product, data))
 
-    print(f"[BOKUN DEBUG] Total events generated: {len(events)}")
+    print(f"\n[BOKUN DEBUG] === Total events generated: {len(events)} ===\n")
     return events
 
 # --- Flask route for frontend ---
@@ -220,11 +235,13 @@ def availability(start, end):
         events = get_availability_for_products(start, end)
         return jsonify(events)
     except Exception as e:
-        print("[ERROR]", e)
+        print(f"[ERROR] {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
 # --- Run Flask locally or on Railway ---
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))  # Railway sets PORT automatically
+    port = int(os.environ.get("PORT", 5000))
     print(f"[INFO] Starting Flask on port {port}...")
     app.run(host="0.0.0.0", port=port, debug=True)
