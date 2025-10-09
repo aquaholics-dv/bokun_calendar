@@ -228,4 +228,3 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))  # Railway sets PORT automatically
     print(f"[INFO] Starting Flask on port {port}...")
     app.run(host="0.0.0.0", port=port, debug=True)
-
