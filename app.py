@@ -37,6 +37,8 @@ class Product:
     name: str
     booking_url: str
     color: str = "green"
+    duration_minutes: int = 120  # Default 2 hours
+    departure_location: str = "Portstewart/Portrush"
 
 
 # --- Products you want to display ---
@@ -45,13 +47,17 @@ PRODUCTS: List[Product] = [
         id="1084194",
         name="Skerries & Dunluce",
         booking_url="https://aquaholics.co.uk/pages/boku-test",
-        color="#10b981"  # Emerald green
+        color="#10b981",  # Emerald green
+        duration_minutes=120,  # 2 hours
+        departure_location="Portstewart/Portrush"
     ),
     Product(
         id="1087988",
         name="Giant's Causeway, Skerries & Dunluce",
         booking_url="https://aquaholics.co.uk/pages/giants-causeway-bkuk",
-        color="#3b82f6"  # Blue
+        color="#3b82f6",  # Blue
+        duration_minutes=180,  # 3 hours
+        departure_location="Portstewart/Portrush"
     ),
 ]
 
@@ -169,6 +175,14 @@ def _build_events(product: Product, slots: Iterable[Dict[str, Any]]) -> List[Dic
         if not start_time:
             continue
 
+        # Format duration nicely
+        hours = product.duration_minutes // 60
+        minutes = product.duration_minutes % 60
+        if minutes > 0:
+            duration_str = f"{hours}h {minutes}m"
+        else:
+            duration_str = f"{hours}h"
+
         events.append({
             "title": f"{product.name}",
             "start": start_time,
@@ -177,7 +191,9 @@ def _build_events(product: Product, slots: Iterable[Dict[str, Any]]) -> List[Dic
             "extendedProps": {
                 "spots": spots,
                 "soldOut": is_sold_out,
-                "productName": product.name
+                "productName": product.name,
+                "duration": duration_str,
+                "durationMinutes": product.duration_minutes
             }
         })
 
