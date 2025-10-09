@@ -103,8 +103,8 @@ def normalize_start_time(slot: Dict[str, Any]) -> Optional[str]:
                 # datetime.fromisoformat handles most ISO 8601 combinations.
                 parsed = datetime.fromisoformat(cleaned)
             except ValueError:
-                # If parsing fails, fall back to raw string – FullCalendar can still render it.
-                return value
+                # If parsing fails, return None so we can try other fields
+                return None
 
             # Ensure timezone awareness so the frontend renders the correct absolute time.
             if parsed.tzinfo is None:
@@ -114,10 +114,25 @@ def normalize_start_time(slot: Dict[str, Any]) -> Optional[str]:
 
         return None
 
-    for key in ("startTimeUtc", "startTime", "localStartTime", "date"):
+    # Try different field combinations in order of preference
+    for key in ("startTimeUtc", "startTime", "localStartTime"):
         normalized = _coerce(slot.get(key))
         if normalized:
             return normalized
+    
+    # If we only have a date field, try to construct full datetime
+    date_val = slot.get("date")
+    if date_val:
+        date_str = _coerce(date_val)
+        if date_str and len(date_str) == 10:  # Just a date like "2025-10-15"
+            # Look for time in other fields
+            time_val = slot.get("startTime") or slot.get("localStartTime")
+            if time_val and isinstance(time_val, str):
+                # Combine date and time
+                return f"{date_str}T{time_val}:00"
+            # Default to midnight if no time found
+            return f"{date_str}T00:00:00"
+        return date_str
 
     return None
 
@@ -146,6 +161,14 @@ def _build_events(product: Product, slots: Iterable[Dict[str, Any]]) -> List[Dic
         spots = slot.get("availabilityCount", 0)
         is_sold_out = slot.get("soldOut", False) or slot.get("unavailable", False)
         start_time = normalize_start_time(slot)
+        
+        # Debug: print what we're getting from Bokun
+        print(f"[DEBUG] Slot data: date={slot.get('date')}, startTime={slot.get('startTime')}, "
+              f"startTimeUtc={slot.get('startTimeUtc')}, normalized={start_time}")
+
+        if not start_time:
+            print(f"[WARNING] Skipping slot with no valid start time: {slot}")
+            continue
 
         events.append(
             {
@@ -179,12 +202,14 @@ def get_availability_for_products(start_date: str, end_date: str) -> List[Dict[s
             response = requests.get(url, headers=headers, timeout=10)
             response.raise_for_status()
             data = response.json()
+            print(f"[BOKUN DEBUG] Received {len(data)} slots from Bokun for product {product.id}")
         except requests.RequestException as exc:  # pragma: no cover - side effect logging only
             print("[ERROR] Request failed for", product.id, ":", exc)
             continue
 
         events.extend(_build_events(product, data))
 
+    print(f"[BOKUN DEBUG] Total events generated: {len(events)}")
     return events
 
 # --- Flask route for frontend ---
