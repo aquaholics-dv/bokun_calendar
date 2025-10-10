@@ -36,7 +36,7 @@ class Product:
 PRODUCTS: List[Product] = [
     Product(
         id="1084194",
-        name="Skerries & Dunluce",
+        name="Skerries & Dunluce Castle",
         booking_url="https://aquaholics.co.uk/pages/boku-test",
         color="#10b981",
         duration_minutes=90,
@@ -44,7 +44,7 @@ PRODUCTS: List[Product] = [
     ),
     Product(
         id="1087988",
-        name="Giant's Causeway, Skerries & Dunluce",
+        name="Giant's Causeway, Skerries & Dunluce Castle",
         booking_url="https://aquaholics.co.uk/pages/giants-causeway-bkuk",
         color="#3b82f6",
         duration_minutes=150,
