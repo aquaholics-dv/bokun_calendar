@@ -39,7 +39,7 @@ PRODUCTS: List[Product] = [
         name="Skerries & Dunluce",
         booking_url="https://aquaholics.co.uk/pages/boku-test",
         color="#10b981",
-        duration_minutes=120,
+        duration_minutes=90,
         departure_location="Portstewart/Portrush"
     ),
     Product(
@@ -47,7 +47,7 @@ PRODUCTS: List[Product] = [
         name="Giant's Causeway, Skerries & Dunluce",
         booking_url="https://aquaholics.co.uk/pages/giants-causeway-bkuk",
         color="#3b82f6",
-        duration_minutes=180,
+        duration_minutes=150,
         departure_location="Portstewart/Portrush"
     ),
 ]
