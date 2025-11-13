@@ -36,7 +36,7 @@ class Product:
 PRODUCTS: List[Product] = [
     Product(
         id="1084194",
-        name="Skerries & Dunluce Castle",
+        name="Skerries & Dunluce",
         booking_url="https://aquaholics.co.uk/pages/boku-test",
         color="#10b981",
         duration_minutes=90,
@@ -44,11 +44,75 @@ PRODUCTS: List[Product] = [
     ),
     Product(
         id="1087988",
-        name="Giant's Causeway, Skerries & Dunluce Castle",
+        name="Giant's Causeway, Skerries & Dunluce",
         booking_url="https://aquaholics.co.uk/pages/giants-causeway-bkuk",
         color="#3b82f6",
         duration_minutes=150,
         departure_location="Portstewart/Portrush"
+    ),
+    Product(
+        id="1088027",
+        name="Carrick-a-rede Rope Bridge (with optional swim)",
+        booking_url="https://aquaholics.co.uk/products/sea-safari-carrick-a-rede-boat-trip-from-ballycastle",
+        color="#f59e0b",
+        duration_minutes=90,
+        departure_location="Ballycastle"
+    ),
+    Product(
+        id="1111734",
+        name="Snorkel The Hidden Caves Of White Rocks & Dunluce",
+        booking_url="https://aquaholics.co.uk/products/snorkel-the-hidden-caves-of-white-rocks-and-dunluce-castle",
+        color="#06b6d4",
+        duration_minutes=180,
+        departure_location="Ballycastle"
+    ),
+    Product(
+        id="1113923",
+        name="Rathlin & Carrick-a-Rede Ropebridge",
+        booking_url="https://aquaholics.co.uk/products/puffin-express-and-carrick-a-rede-ropebridge-boat-trip",
+        color="#8b5cf6",
+        duration_minutes=120,
+        departure_location="Ballycastle"
+    ),
+    Product(
+        id="1113944",
+        name="Full Rathlin Tour",
+        booking_url="https://aquaholics.co.uk/products/full-rathlin",
+        color="#ec4899",
+        duration_minutes=120,
+        departure_location="Ballycastle"
+    ),
+    Product(
+        id="1113948",
+        name="Islay and its Distilleries Day Trip",
+        booking_url="https://aquaholics.co.uk/products/whiskey-trip-to-islay",
+        color="#ef4444",
+        duration_minutes=540,
+        departure_location="Ballycastle"
+    ),
+    Product(
+        id="1113953",
+        name="Ballycastle to Port Ellen Ferry Trip",
+        booking_url="https://aquaholics.co.uk/products/ballycastle-to-port-ellen-ferry-trip",
+        color="#14b8a6",
+        duration_minutes=90,
+        departure_location="Ballycastle"
+    ),
+    Product(
+        id="1113957",
+        name="Port Ellen to Ballycastle Ferry Trip",
+        booking_url="https://aquaholics.co.uk/products/port-ellen-islay-to-ballycastle-ferry-trip",
+        color="#06b6d4",
+        duration_minutes=90,
+        departure_location="Ballycastle"
+    ),
+    Product(
+        id="1113958",
+        name="Snorkel Carrick-a-rede Rope Bridge",
+        booking_url="https://aquaholics.co.uk/products/snorkel-carrick-a-rede",
+        color="#10b981",
+        duration_minutes=180,
+        departure_location="Ballycastle"
     ),
 ]
 
