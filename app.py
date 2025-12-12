@@ -30,17 +30,20 @@ class Product:
     name: str
     booking_url: str
     color: str = "green"
-    duration_minutes: int = 120
-    departure_location: str = "Portstewart/Portrush"
+    duration_minutes: Optional[int] = None
+    departure_location: Optional[str] = None
+    product_type: str = "boat"  # "boat" or "course"
 
 PRODUCTS: List[Product] = [
+    # Boat Trips
     Product(
         id="1084194",
         name="Skerries & Dunluce",
         booking_url="https://aquaholics.co.uk/pages/boku-test",
         color="#10b981",
         duration_minutes=90,
-        departure_location="Portstewart/Portrush"
+        departure_location="Portstewart/Portrush",
+        product_type="boat"
     ),
     Product(
         id="1087988",
@@ -48,7 +51,8 @@ PRODUCTS: List[Product] = [
         booking_url="https://aquaholics.co.uk/pages/giants-causeway-bkuk",
         color="#3b82f6",
         duration_minutes=150,
-        departure_location="Portstewart/Portrush"
+        departure_location="Portstewart/Portrush",
+        product_type="boat"
     ),
     Product(
         id="1088027",
@@ -56,15 +60,17 @@ PRODUCTS: List[Product] = [
         booking_url="https://aquaholics.co.uk/products/sea-safari-carrick-a-rede-boat-trip-from-ballycastle",
         color="#f59e0b",
         duration_minutes=90,
-        departure_location="Ballycastle"
+        departure_location="Ballycastle",
+        product_type="boat"
     ),
     Product(
         id="1111734",
         name="Snorkel The Hidden Caves Of White Rocks & Dunluce",
-        booking_url="https://aquaholics.co.uk/products/snorkel-the-hidden-caves-of-white-rocks-and-dunluce-castle",
+        booking_url="https://aquaholics.co.uk/products/snorkel-the-hidden-caves-of-white-rocks-and-dunluce-castle?keyword=snorkel%20the%20hidden",
         color="#06b6d4",
         duration_minutes=180,
-        departure_location="Ballycastle"
+        departure_location="Ballycastle",
+        product_type="boat"
     ),
     Product(
         id="1113923",
@@ -72,7 +78,8 @@ PRODUCTS: List[Product] = [
         booking_url="https://aquaholics.co.uk/products/puffin-express-and-carrick-a-rede-ropebridge-boat-trip",
         color="#8b5cf6",
         duration_minutes=120,
-        departure_location="Ballycastle"
+        departure_location="Ballycastle",
+        product_type="boat"
     ),
     Product(
         id="1113944",
@@ -80,7 +87,8 @@ PRODUCTS: List[Product] = [
         booking_url="https://aquaholics.co.uk/products/full-rathlin",
         color="#ec4899",
         duration_minutes=120,
-        departure_location="Ballycastle"
+        departure_location="Ballycastle",
+        product_type="boat"
     ),
     Product(
         id="1113948",
@@ -88,7 +96,8 @@ PRODUCTS: List[Product] = [
         booking_url="https://aquaholics.co.uk/products/whiskey-trip-to-islay",
         color="#ef4444",
         duration_minutes=540,
-        departure_location="Ballycastle"
+        departure_location="Ballycastle",
+        product_type="boat"
     ),
     Product(
         id="1113953",
@@ -96,7 +105,8 @@ PRODUCTS: List[Product] = [
         booking_url="https://aquaholics.co.uk/products/ballycastle-to-port-ellen-ferry-trip",
         color="#14b8a6",
         duration_minutes=90,
-        departure_location="Ballycastle"
+        departure_location="Ballycastle",
+        product_type="boat"
     ),
     Product(
         id="1113957",
@@ -104,7 +114,8 @@ PRODUCTS: List[Product] = [
         booking_url="https://aquaholics.co.uk/products/port-ellen-islay-to-ballycastle-ferry-trip",
         color="#06b6d4",
         duration_minutes=90,
-        departure_location="Ballycastle"
+        departure_location="Ballycastle",
+        product_type="boat"
     ),
     Product(
         id="1113958",
@@ -112,7 +123,87 @@ PRODUCTS: List[Product] = [
         booking_url="https://aquaholics.co.uk/products/snorkel-carrick-a-rede",
         color="#10b981",
         duration_minutes=180,
-        departure_location="Ballycastle"
+        departure_location="Ballycastle",
+        product_type="boat"
+    ),
+    
+    # PADI Diving Courses
+    Product(
+        id="1111773",
+        name="PADI - Open Water Course Part A",
+        booking_url="https://aquaholics.co.uk/products/padi-open-water-diver?keyword=padi%20open%20water",
+        color="#0ea5e9",
+        product_type="course"
+    ),
+    Product(
+        id="1127593",
+        name="PADI - Enriched Air Diver",
+        booking_url="https://aquaholics.co.uk/products/padi-enriched-air-diver-specialty?keyword=enr",
+        color="#0284c7",
+        product_type="course"
+    ),
+    Product(
+        id="1127599",
+        name="PADI Drysuit Course",
+        booking_url="https://aquaholics.co.uk/pages/padi-drysuit-course",
+        color="#7c3aed",
+        product_type="course"
+    ),
+    Product(
+        id="1127606",
+        name="PADI - Night Diver",
+        booking_url="https://aquaholics.co.uk/products/padi-night-diver-specialty?keyword=night%20diver",
+        color="#6366f1",
+        product_type="course"
+    ),
+    Product(
+        id="1127648",
+        name="PADI - Drift Diver",
+        booking_url="https://aquaholics.co.uk/products/padi-drift-diver-speciality",
+        color="#22d3ee",
+        product_type="course"
+    ),
+    Product(
+        id="1127655",
+        name="PADI - Peak Performance Buoyancy",
+        booking_url="https://aquaholics.co.uk/products/padi-peak-performance-buoyancy-specialty",
+        color="#06b6d4",
+        product_type="course"
+    ),
+    Product(
+        id="1127658",
+        name="PADI - Wreck Diver",
+        booking_url="https://aquaholics.co.uk/products/padi-wreck-diver-specialty",
+        color="#8b5cf6",
+        product_type="course"
+    ),
+    Product(
+        id="1127662",
+        name="PADI - Deep Diver",
+        booking_url="https://aquaholics.co.uk/products/padi-deep-diver-specialty",
+        color="#3b82f6",
+        product_type="course"
+    ),
+    Product(
+        id="1127676",
+        name="PADI - Rescue Diver Course",
+        booking_url="https://aquaholics.co.uk/products/padi-rescue-diver",
+        color="#a855f7",
+        product_type="course"
+    ),
+    Product(
+        id="1127727",
+        name="PADI - Divemaster",
+        booking_url="https://aquaholics.co.uk/products/padi-divemaster",
+        color="#ec4899",
+        product_type="course"
+    ),
+    Product(
+        id="1127745",
+        name="PADI - Emergency First Response Course",
+        booking_url="https://aquaholics.co.uk/products/padi-emergency-first-response",
+        color="#ef4444",
+        product_type="course"
     ),
 ]
 
@@ -194,97 +285,20 @@ def _build_events(product: Product, slots: Iterable[Dict[str, Any]]) -> List[Dic
         start_time = normalize_start_time(slot)
         if not start_time:
             continue
-        hours = product.duration_minutes // 60
-        minutes = product.duration_minutes % 60
-        if minutes > 0:
-            duration_str = f"{hours}h {minutes}m"
-        else:
-            duration_str = f"{hours}h"
-        events.append({
-            "title": f"{product.name}",
-            "start": start_time,
-            "color": "#ef4444" if is_sold_out else product.color,
-            "url": product.booking_url if not is_sold_out else None,
-            "extendedProps": {
-                "spots": spots,
-                "soldOut": is_sold_out,
-                "productName": product.name,
-                "duration": duration_str,
-                "durationMinutes": product.duration_minutes,
-                "departureLocation": product.departure_location
-            }
-        })
-    return events
-
-def get_availability_for_products(start_date: str, end_date: str) -> List[Dict[str, Any]]:
-    events: List[Dict[str, Any]] = []
-    for product in PRODUCTS:
-        method = "GET"
-        path = f"/activity.json/{product.id}/availabilities"
-        query = f"?start={start_date}&end={end_date}&lang=EN&currency=GBP&includeSoldOut=false"
-        full_path = path + query
-        headers = _build_request_headers(method, path, query)
-        url = "https://api.bokun.io" + full_path
-        try:
-            response = requests.get(url, headers=headers, timeout=10)
-            response.raise_for_status()
-            data = response.json()
-            product_events = _build_events(product, data)
-            events.extend(product_events)
-            logger.info(f"Loaded {len(product_events)} events for {product.name}")
-        except requests.RequestException as exc:
-            logger.error(f"Request failed for {product.id}: {exc}")
-            continue
-    return events
-
-@app.route("/")
-def index():
-    return jsonify({"status": "ok", "service": "Bokun Calendar API", "products": len(PRODUCTS)})
-
-@app.route("/availability/<start>/<end>")
-def availability(start, end):
-    try:
-        events = get_availability_for_products(start, end)
-        logger.info(f"Returning {len(events)} total events for {start} to {end}")
-        return jsonify(events)
-    except Exception as e:
-        logger.error(f"Error processing request: {e}", exc_info=True)
-        return jsonify({"error": "Internal server error"}), 500
-
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    logger.info(f"Starting Flask on port {port}...")
-    app.run(host="0.0.0.0", port=port, debug=True)
-def _build_events(product: Product, slots: Iterable[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    events: List[Dict[str, Any]] = []
-    for slot in slots:
-        spots = slot.get("availabilityCount", 0)
-        is_sold_out = slot.get("soldOut", False) or slot.get("unavailable", False)
-        start_time = normalize_start_time(slot)
-        if not start_time:
-            continue
         
         # Build extended props
         extended_props = {
             "spots": spots,
             "soldOut": is_sold_out,
             "productName": product.name,
+            "productType": product.product_type
         }
         
         # Only add duration and departure location if they exist
         if product.duration_minutes is not None:
             hours = product.duration_minutes // 60
             minutes = product.duration_minutes % 60
-            
-            # Format duration for multi-day courses
-            if hours >= 24:
-                days = hours // 24
-                remaining_hours = hours % 24
-                if remaining_hours > 0:
-                    duration_str = f"{days}d {remaining_hours}h"
-                else:
-                    duration_str = f"{days} day" if days == 1 else f"{days} days"
-            elif minutes > 0:
+            if minutes > 0:
                 duration_str = f"{hours}h {minutes}m"
             else:
                 duration_str = f"{hours}h"
@@ -304,9 +318,15 @@ def _build_events(product: Product, slots: Iterable[Dict[str, Any]]) -> List[Dic
         })
     return events
 
-def get_availability_for_products(start_date: str, end_date: str) -> List[Dict[str, Any]]:
+def get_availability_for_products(start_date: str, end_date: str, product_type: Optional[str] = None) -> List[Dict[str, Any]]:
     events: List[Dict[str, Any]] = []
-    for product in PRODUCTS:
+    
+    # Filter products by type if specified
+    products_to_fetch = PRODUCTS
+    if product_type:
+        products_to_fetch = [p for p in PRODUCTS if p.product_type == product_type]
+    
+    for product in products_to_fetch:
         method = "GET"
         path = f"/activity.json/{product.id}/availabilities"
         query = f"?start={start_date}&end={end_date}&lang=EN&currency=GBP&includeSoldOut=false"
@@ -327,13 +347,44 @@ def get_availability_for_products(start_date: str, end_date: str) -> List[Dict[s
 
 @app.route("/")
 def index():
-    return jsonify({"status": "ok", "service": "Bokun Calendar API", "products": len(PRODUCTS)})
+    boat_count = len([p for p in PRODUCTS if p.product_type == "boat"])
+    course_count = len([p for p in PRODUCTS if p.product_type == "course"])
+    return jsonify({
+        "status": "ok", 
+        "service": "Bokun Calendar API", 
+        "total_products": len(PRODUCTS),
+        "boat_trips": boat_count,
+        "diving_courses": course_count
+    })
 
 @app.route("/availability/<start>/<end>")
 def availability(start, end):
+    """Get all availability (boat trips + courses)"""
     try:
         events = get_availability_for_products(start, end)
         logger.info(f"Returning {len(events)} total events for {start} to {end}")
+        return jsonify(events)
+    except Exception as e:
+        logger.error(f"Error processing request: {e}", exc_info=True)
+        return jsonify({"error": "Internal server error"}), 500
+
+@app.route("/availability/boats/<start>/<end>")
+def availability_boats(start, end):
+    """Get only boat trip availability"""
+    try:
+        events = get_availability_for_products(start, end, product_type="boat")
+        logger.info(f"Returning {len(events)} boat trip events for {start} to {end}")
+        return jsonify(events)
+    except Exception as e:
+        logger.error(f"Error processing request: {e}", exc_info=True)
+        return jsonify({"error": "Internal server error"}), 500
+
+@app.route("/availability/courses/<start>/<end>")
+def availability_courses(start, end):
+    """Get only diving course availability"""
+    try:
+        events = get_availability_for_products(start, end, product_type="course")
+        logger.info(f"Returning {len(events)} course events for {start} to {end}")
         return jsonify(events)
     except Exception as e:
         logger.error(f"Error processing request: {e}", exc_info=True)
@@ -343,3 +394,26 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     logger.info(f"Starting Flask on port {port}...")
     app.run(host="0.0.0.0", port=port, debug=True)
+```
+
+## Key Changes:
+
+1. **Added `product_type` field** to the Product dataclass - each product is now tagged as either "boat" or "course"
+
+2. **Three separate endpoints**:
+   - `/availability/<start>/<end>` - Returns ALL products (boats + courses)
+   - `/availability/boats/<start>/<end>` - Returns ONLY boat trips
+   - `/availability/courses/<start>/<end>` - Returns ONLY diving courses
+
+3. **Updated home endpoint** to show counts of each type
+
+## Usage Examples:
+```
+# All availability
+https://your-app.com/availability/2025-01-01/2025-01-31
+
+# Only boat trips
+https://your-app.com/availability/boats/2025-01-01/2025-01-31
+
+# Only diving courses
+https://your-app.com/availability/courses/2025-01-01/2025-01-31
