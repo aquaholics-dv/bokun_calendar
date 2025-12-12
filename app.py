@@ -331,6 +331,27 @@ def get_availability_for_products(start_date: str, end_date: str) -> List[Dict[s
             continue
     return events
 
+def get_availability_for_boats(start_date: str, end_date: str) -> List[Dict[str, Any]]:
+    events: List[Dict[str, Any]] = []
+    for product in BOAT_PRODUCTS:
+        method = "GET"
+        path = f"/activity.json/{product.id}/availabilities"
+        query = f"?start={start_date}&end={end_date}&lang=EN&currency=GBP&includeSoldOut=false"
+        full_path = path + query
+        headers = _build_request_headers(method, path, query)
+        url = "https://api.bokun.io" + full_path
+        try:
+            response = requests.get(url, headers=headers, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+            product_events = _build_events(product, data)
+            events.extend(product_events)
+            logger.info(f"Loaded {len(product_events)} events for {product.name}")
+        except requests.RequestException as exc:
+            logger.error(f"Request failed for {product.id}: {exc}")
+            continue
+    return events
+
 def get_availability_for_courses(start_date: str, end_date: str) -> List[Dict[str, Any]]:
     events: List[Dict[str, Any]] = []
     for product in COURSE_PRODUCTS:
@@ -364,6 +385,7 @@ def index():
 
 @app.route("/availability/<start>/<end>")
 def availability(start, end):
+    """Get all availability (boat trips + courses)"""
     try:
         events = get_availability_for_products(start, end)
         logger.info(f"Returning {len(events)} total events for {start} to {end}")
@@ -372,8 +394,20 @@ def availability(start, end):
         logger.error(f"Error processing request: {e}", exc_info=True)
         return jsonify({"error": "Internal server error"}), 500
 
+@app.route("/availability/boats/<start>/<end>")
+def availability_boats(start, end):
+    """Get only boat trip availability"""
+    try:
+        events = get_availability_for_boats(start, end)
+        logger.info(f"Returning {len(events)} boat trip events for {start} to {end}")
+        return jsonify(events)
+    except Exception as e:
+        logger.error(f"Error processing request: {e}", exc_info=True)
+        return jsonify({"error": "Internal server error"}), 500
+
 @app.route("/availability/courses/<start>/<end>")
 def availability_courses(start, end):
+    """Get only diving course availability"""
     try:
         events = get_availability_for_courses(start, end)
         logger.info(f"Returning {len(events)} course events for {start} to {end}")
