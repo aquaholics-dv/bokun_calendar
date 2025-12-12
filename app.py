@@ -123,93 +123,70 @@ COURSE_PRODUCTS: List[Product] = [
         id="1111773",
         name="PADI - Open Water Course Part A",
         booking_url="https://aquaholics.co.uk/products/padi-open-water-diver?keyword=padi%20open%20water",
-        color="#0ea5e9",
-        duration_minutes=120,
-        departure_location="Portstewart"
+        color="#0ea5e9"
     ),
     Product(
         id="1127593",
         name="PADI - Enriched Air Diver",
         booking_url="https://aquaholics.co.uk/products/padi-enriched-air-diver-specialty?keyword=enr",
-        color="#0284c7",
-        duration_minutes=120,
-        departure_location="Portstewart"
+        color="#0284c7"
     ),
     Product(
         id="1127599",
         name="PADI Drysuit Course",
         booking_url="https://aquaholics.co.uk/pages/padi-drysuit-course",
-        color="#7c3aed",
-        duration_minutes=120,
-        departure_location="Portstewart"
+        color="#7c3aed"
     ),
     Product(
         id="1127606",
         name="PADI - Night Diver",
         booking_url="https://aquaholics.co.uk/products/padi-night-diver-specialty?keyword=night%20diver",
-        color="#6366f1",
-        duration_minutes=120,
-        departure_location="Portstewart"
+        color="#6366f1"
     ),
     Product(
         id="1127648",
         name="PADI - Drift Diver",
         booking_url="https://aquaholics.co.uk/products/padi-drift-diver-speciality",
-        color="#22d3ee",
-        duration_minutes=120,
-        departure_location="Portstewart"
+        color="#22d3ee"
     ),
     Product(
         id="1127655",
         name="PADI - Peak Performance Buoyancy",
         booking_url="https://aquaholics.co.uk/products/padi-peak-performance-buoyancy-specialty",
-        color="#06b6d4",
-        duration_minutes=120,
-        departure_location="Portstewart"
+        color="#06b6d4"
     ),
     Product(
         id="1127658",
         name="PADI - Wreck Diver",
         booking_url="https://aquaholics.co.uk/products/padi-wreck-diver-specialty",
-        color="#8b5cf6",
-        duration_minutes=120,
-        departure_location="Portstewart"
+        color="#8b5cf6"
     ),
     Product(
         id="1127662",
         name="PADI - Deep Diver",
         booking_url="https://aquaholics.co.uk/products/padi-deep-diver-specialty",
-        color="#3b82f6",
-        duration_minutes=120,
-        departure_location="Portstewart"
+        color="#3b82f6"
     ),
     Product(
         id="1127676",
         name="PADI - Rescue Diver Course",
         booking_url="https://aquaholics.co.uk/products/padi-rescue-diver",
-        color="#a855f7",
-        duration_minutes=120,
-        departure_location="Portstewart"
+        color="#a855f7"
     ),
     Product(
         id="1127727",
         name="PADI - Divemaster",
         booking_url="https://aquaholics.co.uk/products/padi-divemaster",
-        color="#ec4899",
-        duration_minutes=120,
-        departure_location="Portstewart"
+        color="#ec4899"
     ),
     Product(
         id="1127745",
         name="PADI - Emergency First Response Course",
         booking_url="https://aquaholics.co.uk/products/padi-emergency-first-response",
-        color="#ef4444",
-        duration_minutes=120,
-        departure_location="Portstewart"
+        color="#ef4444"
     ),
 ]
 
-# All products combined
 PRODUCTS = BOAT_PRODUCTS + COURSE_PRODUCTS
 
 def bokun_date_str() -> str:
@@ -312,9 +289,30 @@ def _build_events(product: Product, slots: Iterable[Dict[str, Any]]) -> List[Dic
         })
     return events
 
-def get_availability_for_products(start_date: str, end_date: str, products: List[Product]) -> List[Dict[str, Any]]:
+def _build_events_courses(product: Product, slots: Iterable[Dict[str, Any]]) -> List[Dict[str, Any]]:
     events: List[Dict[str, Any]] = []
-    for product in products:
+    for slot in slots:
+        spots = slot.get("availabilityCount", 0)
+        is_sold_out = slot.get("soldOut", False) or slot.get("unavailable", False)
+        start_time = normalize_start_time(slot)
+        if not start_time:
+            continue
+        events.append({
+            "title": f"{product.name}",
+            "start": start_time,
+            "color": "#ef4444" if is_sold_out else product.color,
+            "url": product.booking_url if not is_sold_out else None,
+            "extendedProps": {
+                "spots": spots,
+                "soldOut": is_sold_out,
+                "productName": product.name
+            }
+        })
+    return events
+
+def get_availability_for_products(start_date: str, end_date: str) -> List[Dict[str, Any]]:
+    events: List[Dict[str, Any]] = []
+    for product in PRODUCTS:
         method = "GET"
         path = f"/activity.json/{product.id}/availabilities"
         query = f"?start={start_date}&end={end_date}&lang=EN&currency=GBP&includeSoldOut=false"
@@ -326,6 +324,27 @@ def get_availability_for_products(start_date: str, end_date: str, products: List
             response.raise_for_status()
             data = response.json()
             product_events = _build_events(product, data)
+            events.extend(product_events)
+            logger.info(f"Loaded {len(product_events)} events for {product.name}")
+        except requests.RequestException as exc:
+            logger.error(f"Request failed for {product.id}: {exc}")
+            continue
+    return events
+
+def get_availability_for_courses(start_date: str, end_date: str) -> List[Dict[str, Any]]:
+    events: List[Dict[str, Any]] = []
+    for product in COURSE_PRODUCTS:
+        method = "GET"
+        path = f"/activity.json/{product.id}/availabilities"
+        query = f"?start={start_date}&end={end_date}&lang=EN&currency=GBP&includeSoldOut=false"
+        full_path = path + query
+        headers = _build_request_headers(method, path, query)
+        url = "https://api.bokun.io" + full_path
+        try:
+            response = requests.get(url, headers=headers, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+            product_events = _build_events_courses(product, data)
             events.extend(product_events)
             logger.info(f"Loaded {len(product_events)} events for {product.name}")
         except requests.RequestException as exc:
@@ -345,21 +364,9 @@ def index():
 
 @app.route("/availability/<start>/<end>")
 def availability(start, end):
-    """Get all availability (boat trips + courses)"""
     try:
-        events = get_availability_for_products(start, end, PRODUCTS)
+        events = get_availability_for_products(start, end)
         logger.info(f"Returning {len(events)} total events for {start} to {end}")
-        return jsonify(events)
-    except Exception as e:
-        logger.error(f"Error processing request: {e}", exc_info=True)
-        return jsonify({"error": "Internal server error"}), 500
-
-@app.route("/availability/boats/<start>/<end>")
-def availability_boats(start, end):
-    """Get only boat trip availability"""
-    try:
-        events = get_availability_for_products(start, end, BOAT_PRODUCTS)
-        logger.info(f"Returning {len(events)} boat trip events for {start} to {end}")
         return jsonify(events)
     except Exception as e:
         logger.error(f"Error processing request: {e}", exc_info=True)
@@ -367,9 +374,8 @@ def availability_boats(start, end):
 
 @app.route("/availability/courses/<start>/<end>")
 def availability_courses(start, end):
-    """Get only diving course availability"""
     try:
-        events = get_availability_for_products(start, end, COURSE_PRODUCTS)
+        events = get_availability_for_courses(start, end)
         logger.info(f"Returning {len(events)} course events for {start} to {end}")
         return jsonify(events)
     except Exception as e:
