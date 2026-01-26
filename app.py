@@ -115,6 +115,14 @@ BOAT_PRODUCTS: List[Product] = [
         duration_minutes=180,
         departure_location="Ballycastle"
     ),
+    Product(
+        id="1125425",
+        name="NI Science Week - Historical Wreck Tour",
+        booking_url="https://aquaholics.co.uk/products/ni-science-week-historical-wreck-tour",
+        color="#8B4513",
+        duration_minutes=120,
+        departure_location="Ballycastle"
+    ),
 ]
 
 # PADI Diving Courses (Divemaster removed)
