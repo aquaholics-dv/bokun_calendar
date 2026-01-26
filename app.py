@@ -118,7 +118,7 @@ BOAT_PRODUCTS: List[Product] = [
     Product(
         id="1125425",
         name="NI Science Week - Historical Wreck Tour",
-        booking_url="https://aquaholics.co.uk/products/ni-science-week-historical-wreck-tour",
+        booking_url="https://aquaholics.co.uk/products/ni-science-week-historical-wrecks",
         color="#8B4513",
         duration_minutes=120,
         departure_location="Ballycastle"
