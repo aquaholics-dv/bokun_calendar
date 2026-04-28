@@ -38,7 +38,7 @@ BOAT_PRODUCTS: List[Product] = [
     Product(
         id="1084194",
         name="Skerries & Dunluce",
-        booking_url="https://aquaholics.co.uk/pages/boku-test",
+        booking_url="https://aquaholics.co.uk/products/skerries-and-dunluce-castle-from-portstewart-portrush",
         color="#10b981",
         duration_minutes=90,
         departure_location="Portstewart/Portrush"
