@@ -21,8 +21,8 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 CORS(app)
 
-ACCESS_KEY = os.environ.get("BOKUN_ACCESS_KEY", "75dd7122985a493ebcb1c04841ca2d17")
-SECRET_KEY = os.environ.get("BOKUN_SECRET_KEY", "00c39fd375af4b8e8888b483d14335f5")
+ACCESS_KEY = os.environ["BOKUN_ACCESS_KEY"]
+SECRET_KEY = os.environ["BOKUN_SECRET_KEY"]
 
 @dataclass(frozen=True)
 class Product:
